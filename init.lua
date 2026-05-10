@@ -71,7 +71,7 @@ local function search_cal(raw)
   if day_offset == "1" then label = "tomorrow" end
 
   local items = {}
-  for _, ev in ipairs(events) do
+  for i, ev in ipairs(events) do
     local time_range = ev.start .. "\u{2013}" .. ev["end"]
     local subtitle = ev.calendar
     if ev.location ~= "" then
@@ -80,7 +80,7 @@ local function search_cal(raw)
     table.insert(items, {
       title = time_range .. "  " .. ev.title,
       subtitle = subtitle,
-      score = 100,
+      score = 1000 - i,
       badge = "CAL",
       payload = { kind = "open_event", epoch = ev.epoch },
     })
