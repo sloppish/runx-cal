@@ -87,7 +87,7 @@ func printEvents(_ store: EKEventStore) {
     let end = cal.date(bySettingHour: 23, minute: 59, second: 59, of: target)!
 
     let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
-    let events = store.events(matching: predicate)
+    let events = store.events(matching: predicate).sorted { $0.startDate < $1.startDate }
 
     let fmt = DateFormatter()
     fmt.dateFormat = "HH:mm"
