@@ -1,11 +1,9 @@
 ---@diagnostic disable: undefined-global
 
+local date_query = require("date_query")
+
 local SNAPSHOT_DAYS = 31
 local SNAPSHOT_KEY = "events:snapshot"
-
-local function trim(value)
-  return (value or ""):gsub("^%s+", ""):gsub("%s+$", "")
-end
 
 local function ensure_app()
   local app = runx.plugin_dir .. "/CalEvents.app"
@@ -18,12 +16,6 @@ local function ensure_app()
   end
   return app
 end
-
-local day_aliases = {
-  tomorrow = 1,
-  tmr = 1,
-  today = 0,
-}
 
 local function run_cal_binary(app, args)
   local binary = app .. "/Contents/MacOS/cal-events"
@@ -79,59 +71,16 @@ local function load_day(day_offset)
   return fetch_events({ tostring(day_offset) })
 end
 
-local function query_day_offset(raw)
-  local arg = trim(raw)
-  if arg == "" then return 0 end
-  if day_aliases[arg] ~= nil then return day_aliases[arg] end
-  local offset = tonumber(arg)
-  if offset and offset >= 0 and offset == math.floor(offset) then
-    return offset
-  end
-  return 0
-end
-
-local function day_bounds(offset)
-  local today = {
-    year = tonumber(os.date("%Y")),
-    month = tonumber(os.date("%m")),
-    day = tonumber(os.date("%d")),
-  }
-  local start_epoch = os.time({
-    year = today.year,
-    month = today.month,
-    day = today.day + offset,
-    hour = 0,
-    min = 0,
-    sec = 0,
-  })
-  local end_epoch = os.time({
-    year = today.year,
-    month = today.month,
-    day = today.day + offset + 1,
-    hour = 0,
-    min = 0,
-    sec = 0,
-  })
-  return start_epoch, end_epoch
-end
-
-local function events_for_day(events, offset)
-  local start_epoch, end_epoch = day_bounds(offset)
+local function events_for_day(events, query)
   local filtered = {}
   for _, ev in ipairs(events) do
     local ev_start = tonumber(ev.start_epoch or ev.epoch)
     local ev_end = tonumber(ev.end_epoch) or ev_start
-    if ev_start and ev_end and ev_start < end_epoch and ev_end > start_epoch then
+    if ev_start and ev_end and ev_start < query.end_epoch and ev_end > query.start_epoch then
       filtered[#filtered + 1] = ev
     end
   end
   return filtered
-end
-
-local function empty_label(offset)
-  if offset == 0 then return "today" end
-  if offset == 1 then return "tomorrow" end
-  return "in " .. offset .. " days"
 end
 
 local function item_for_event(ev, index)
@@ -150,11 +99,11 @@ local function item_for_event(ev, index)
 end
 
 local function search_cal(raw)
-  local day_offset = query_day_offset(raw)
+  local query = date_query.parse(raw)
   local result = nil
 
-  if day_offset >= SNAPSHOT_DAYS then
-    result = load_day(day_offset)
+  if query.offset >= SNAPSHOT_DAYS then
+    result = load_day(query.offset)
   else
     result = load_snapshot()
   end
@@ -169,14 +118,14 @@ local function search_cal(raw)
     }}
   end
 
-  local events = day_offset >= SNAPSHOT_DAYS and result or events_for_day(result, day_offset)
+  local events = query.offset >= SNAPSHOT_DAYS and result or events_for_day(result, query)
   local items = {}
   for i, ev in ipairs(events) do
     table.insert(items, item_for_event(ev, i))
   end
   if #items == 0 then
     table.insert(items, {
-      title = "No upcoming events " .. empty_label(day_offset),
+      title = "No upcoming events " .. query.label,
       subtitle = "Calendar is clear",
       score = 100,
       badge = "CAL",
