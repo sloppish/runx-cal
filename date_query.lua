@@ -6,6 +6,27 @@ local aliases = {
   today = 0,
 }
 
+local weekdays = {
+  sun = { index = 1, label = "Sunday" },
+  sunday = { index = 1, label = "Sunday" },
+  mon = { index = 2, label = "Monday" },
+  monday = { index = 2, label = "Monday" },
+  tue = { index = 3, label = "Tuesday" },
+  tues = { index = 3, label = "Tuesday" },
+  tuesday = { index = 3, label = "Tuesday" },
+  wed = { index = 4, label = "Wednesday" },
+  weds = { index = 4, label = "Wednesday" },
+  wednesday = { index = 4, label = "Wednesday" },
+  thu = { index = 5, label = "Thursday" },
+  thur = { index = 5, label = "Thursday" },
+  thurs = { index = 5, label = "Thursday" },
+  thursday = { index = 5, label = "Thursday" },
+  fri = { index = 6, label = "Friday" },
+  friday = { index = 6, label = "Friday" },
+  sat = { index = 7, label = "Saturday" },
+  saturday = { index = 7, label = "Saturday" },
+}
+
 local function trim(value)
   return (value or ""):gsub("^%s+", ""):gsub("%s+$", "")
 end
@@ -35,6 +56,14 @@ local function valid_date(year, month, day)
   return normalized.year == year and normalized.month == month and normalized.day == day
 end
 
+local function weekday_query(arg)
+  local token = arg:lower():match("^([a-z]+)%.?.*$")
+  if not token then
+    return nil
+  end
+  return weekdays[token]
+end
+
 function M.parse(raw, now)
   now = now or os.time()
   local arg = trim(raw)
@@ -50,48 +79,55 @@ function M.parse(raw, now)
     offset = aliases[arg]
     label = offset == 0 and "today" or "tomorrow"
   else
-    local number = tonumber(arg)
-    if number and number >= 0 and number == math.floor(number) then
-      offset = number
-      if offset == 0 then
-        label = "today"
-      elseif offset == 1 then
-        label = "tomorrow"
-      else
-        label = "in " .. offset .. " days"
-      end
+    local weekday = weekday_query(arg)
+    if weekday then
+      local current_weekday = tonumber(os.date("%w", now)) + 1
+      offset = (weekday.index - current_weekday) % 7
+      label = weekday.label
     else
-      local day, month, year = arg:match("^(%d%d?)%.(%d%d?)%.(%d%d%d%d)$")
-      if day then
-        day = tonumber(day)
-        month = tonumber(month)
-        year = tonumber(year)
+      local number = tonumber(arg)
+      if number and number >= 0 and number == math.floor(number) then
+        offset = number
+        if offset == 0 then
+          label = "today"
+        elseif offset == 1 then
+          label = "tomorrow"
+        else
+          label = "in " .. offset .. " days"
+        end
       else
-        day, month = arg:match("^(%d%d?)%.(%d%d?)$")
-        day = tonumber(day)
-        month = tonumber(month)
-        local today = today_parts(now)
-        year = today.year
-        if day and month then
-          local today_epoch = midnight_epoch(today.year, today.month, today.day)
-          for candidate_year = today.year, today.year + 8 do
-            if valid_date(candidate_year, month, day) then
-              local target_epoch = midnight_epoch(candidate_year, month, day)
-              if target_epoch >= today_epoch then
-                year = candidate_year
-                break
+        local day, month, year = arg:match("^(%d%d?)%.(%d%d?)%.(%d%d%d%d)$")
+        if day then
+          day = tonumber(day)
+          month = tonumber(month)
+          year = tonumber(year)
+        else
+          day, month = arg:match("^(%d%d?)%.(%d%d?)$")
+          day = tonumber(day)
+          month = tonumber(month)
+          local today = today_parts(now)
+          year = today.year
+          if day and month then
+            local today_epoch = midnight_epoch(today.year, today.month, today.day)
+            for candidate_year = today.year, today.year + 8 do
+              if valid_date(candidate_year, month, day) then
+                local target_epoch = midnight_epoch(candidate_year, month, day)
+                if target_epoch >= today_epoch then
+                  year = candidate_year
+                  break
+                end
               end
             end
           end
         end
-      end
-      if day and month and year and valid_date(year, month, day) then
-        local today = today_parts(now)
-        local today_epoch = midnight_epoch(today.year, today.month, today.day)
-        local target_epoch = midnight_epoch(year, month, day)
-        offset = math.floor((target_epoch - today_epoch) / 86400)
-        label = string.format("on %02d.%02d.%04d", day, month, year)
-        explicit_date = true
+        if day and month and year and valid_date(year, month, day) then
+          local today = today_parts(now)
+          local today_epoch = midnight_epoch(today.year, today.month, today.day)
+          local target_epoch = midnight_epoch(year, month, day)
+          offset = math.floor((target_epoch - today_epoch) / 86400)
+          label = string.format("on %02d.%02d.%04d", day, month, year)
+          explicit_date = true
+        end
       end
     end
   end
@@ -111,6 +147,8 @@ function M.parse(raw, now)
     display_label = "Today"
   elseif offset == 1 then
     display_label = "Tomorrow"
+  elseif weekdays[(arg:lower():match("^([a-z]+)%.?.*$") or "")] then
+    display_label = label
   end
 
   return {
