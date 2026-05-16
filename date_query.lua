@@ -62,9 +62,29 @@ function M.parse(raw, now)
       end
     else
       local day, month, year = arg:match("^(%d%d?)%.(%d%d?)%.(%d%d%d%d)$")
-      day = tonumber(day)
-      month = tonumber(month)
-      year = tonumber(year)
+      if day then
+        day = tonumber(day)
+        month = tonumber(month)
+        year = tonumber(year)
+      else
+        day, month = arg:match("^(%d%d?)%.(%d%d?)$")
+        day = tonumber(day)
+        month = tonumber(month)
+        local today = today_parts(now)
+        year = today.year
+        if day and month then
+          local today_epoch = midnight_epoch(today.year, today.month, today.day)
+          for candidate_year = today.year, today.year + 8 do
+            if valid_date(candidate_year, month, day) then
+              local target_epoch = midnight_epoch(candidate_year, month, day)
+              if target_epoch >= today_epoch then
+                year = candidate_year
+                break
+              end
+            end
+          end
+        end
+      end
       if day and month and year and valid_date(year, month, day) then
         local today = today_parts(now)
         local today_epoch = midnight_epoch(today.year, today.month, today.day)
