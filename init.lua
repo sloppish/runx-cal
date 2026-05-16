@@ -83,9 +83,16 @@ local function events_for_day(events, query)
   return filtered
 end
 
-local function item_for_event(ev, index)
+local function query_prefix(query)
+  if query.display_label then
+    return query.display_label .. ", " .. query.display_date
+  end
+  return query.display_date
+end
+
+local function item_for_event(ev, index, query)
   local time_range = ev.start .. "\u{2013}" .. ev["end"]
-  local subtitle = ev.calendar
+  local subtitle = query_prefix(query) .. " \u{00b7} " .. ev.calendar
   if ev.location ~= "" then
     subtitle = subtitle .. " \u{00b7} " .. ev.location
   end
@@ -94,6 +101,7 @@ local function item_for_event(ev, index)
     subtitle = subtitle,
     score = 1000 - index,
     badge = "CAL",
+    style = "full",
     payload = { kind = "open_event", epoch = ev.epoch },
   }
 end
@@ -114,6 +122,7 @@ local function search_cal(raw)
       subtitle = "Press Enter to open Privacy settings",
       score = 100,
       badge = "CAL",
+      style = "full",
       payload = { kind = "open_privacy" },
     }}
   end
@@ -121,14 +130,15 @@ local function search_cal(raw)
   local events = query.offset >= SNAPSHOT_DAYS and result or events_for_day(result, query)
   local items = {}
   for i, ev in ipairs(events) do
-    table.insert(items, item_for_event(ev, i))
+    table.insert(items, item_for_event(ev, i, query))
   end
   if #items == 0 then
     table.insert(items, {
       title = "No upcoming events " .. query.label,
-      subtitle = "Calendar is clear",
+      subtitle = query_prefix(query),
       score = 100,
       badge = "CAL",
+      style = "full",
       payload = { kind = "noop" },
     })
   end

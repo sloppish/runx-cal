@@ -104,11 +104,21 @@ function M.parse(raw, now)
   local today = today_parts(now)
   local start_epoch = midnight_epoch(today.year, today.month, today.day + offset)
   local end_epoch = midnight_epoch(today.year, today.month, today.day + offset + 1)
+  local start = os.date("*t", start_epoch)
+  local display_date = string.format("%02d.%02d.%04d", start.day, start.month, start.year)
+  local display_label = nil
+  if offset == 0 then
+    display_label = "Today"
+  elseif offset == 1 then
+    display_label = "Tomorrow"
+  end
 
   return {
     raw = arg,
     offset = offset,
     label = label,
+    display_date = display_date,
+    display_label = display_label,
     explicit_date = explicit_date,
     start_epoch = start_epoch,
     end_epoch = end_epoch,
