@@ -25,14 +25,17 @@ local day_aliases = {
   today = 0,
 }
 
-local function run_cal_binary(app)
+local function run_cal_binary(app, args)
   local binary = app .. "/Contents/MacOS/cal-events"
-  return runx.exec_json(binary, { "--days", tostring(SNAPSHOT_DAYS) })
+  return runx.exec_json(binary, args)
 end
 
-local function run_cal_app(app)
+local function run_cal_app(app, args)
   local tmp = os.tmpname()
-  local open_args = { "-W", "-g", app, "--args", "--output", tmp, "--days", tostring(SNAPSHOT_DAYS) }
+  local open_args = { "-W", "-g", app, "--args", "--output", tmp }
+  for _, arg in ipairs(args) do
+    table.insert(open_args, arg)
+  end
   runx.exec_status("open", open_args)
   local f = io.open(tmp, "r")
   if not f then return { error = "no_output" } end
@@ -42,28 +45,38 @@ local function run_cal_app(app)
   return runx.json_decode(json_str)
 end
 
+local function fetch_events(args)
+  local app = ensure_app()
+
+  -- Fast path: run binary directly (works if TCC already granted)
+  local ok, result = pcall(run_cal_binary, app, args)
+  if ok and type(result) == "table" and result.error == "denied" then
+    -- Slow path: launch as app so macOS can show TCC prompt
+    result = run_cal_app(app, args)
+  elseif not ok then
+    result = run_cal_app(app, args)
+  end
+
+  return result
+end
+
 local function load_snapshot()
   local cached = runx.session_get(SNAPSHOT_KEY)
   if type(cached) == "table" then
     return cached
   end
 
-  local app = ensure_app()
-
-  -- Fast path: run binary directly (works if TCC already granted)
-  local ok, result = pcall(run_cal_binary, app)
-  if ok and type(result) == "table" and result.error == "denied" then
-    -- Slow path: launch as app so macOS can show TCC prompt
-    result = run_cal_app(app)
-  elseif not ok then
-    result = run_cal_app(app)
-  end
+  local result = fetch_events({ "--days", tostring(SNAPSHOT_DAYS) })
 
   if type(result) == "table" and result.error == nil then
     runx.session_set(SNAPSHOT_KEY, result)
   end
 
   return result
+end
+
+local function load_day(day_offset)
+  return fetch_events({ tostring(day_offset) })
 end
 
 local function query_day_offset(raw)
@@ -91,9 +104,6 @@ local function day_bounds(offset)
     min = 0,
     sec = 0,
   })
-  if offset == 0 then
-    start_epoch = os.time()
-  end
   local end_epoch = os.time({
     year = today.year,
     month = today.month,
@@ -111,7 +121,7 @@ local function events_for_day(events, offset)
   for _, ev in ipairs(events) do
     local ev_start = tonumber(ev.start_epoch or ev.epoch)
     local ev_end = tonumber(ev.end_epoch) or ev_start
-    if ev_start and ev_end and ev_start < end_epoch and ev_end >= start_epoch then
+    if ev_start and ev_end and ev_start < end_epoch and ev_end > start_epoch then
       filtered[#filtered + 1] = ev
     end
   end
@@ -141,7 +151,13 @@ end
 
 local function search_cal(raw)
   local day_offset = query_day_offset(raw)
-  local result = load_snapshot()
+  local result = nil
+
+  if day_offset >= SNAPSHOT_DAYS then
+    result = load_day(day_offset)
+  else
+    result = load_snapshot()
+  end
 
   if result.error == "denied" then
     return {{
@@ -153,17 +169,7 @@ local function search_cal(raw)
     }}
   end
 
-  if day_offset >= SNAPSHOT_DAYS then
-    return {{
-      title = "Calendar range not cached",
-      subtitle = "This plugin currently caches the next " .. SNAPSHOT_DAYS .. " days",
-      score = 100,
-      badge = "CAL",
-      payload = { kind = "noop" },
-    }}
-  end
-
-  local events = events_for_day(result, day_offset)
+  local events = day_offset >= SNAPSHOT_DAYS and result or events_for_day(result, day_offset)
   local items = {}
   for i, ev in ipairs(events) do
     table.insert(items, item_for_event(ev, i))
