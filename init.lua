@@ -5,16 +5,8 @@ local date_query = require("date_query")
 local SNAPSHOT_DAYS = 31
 local SNAPSHOT_KEY = "events:snapshot"
 
-local function ensure_app()
-  local app = runx.plugin_dir .. "/CalEvents.app"
-  local binary = app .. "/Contents/MacOS/cal-events"
-  local source = runx.plugin_dir .. "/cal-events.swift"
-  local exists = pcall(runx.exec_status, "test", { "-x", binary })
-  local stale = pcall(runx.exec_status, "test", { source, "-nt", binary })
-  if not exists or stale then
-    runx.exec_status("bash", { runx.plugin_dir .. "/build-app.sh" })
-  end
-  return app
+local function app_path()
+  return runx.plugin_dir .. "/CalEvents.app"
 end
 
 local function run_cal_binary(app, args)
@@ -38,7 +30,7 @@ local function run_cal_app(app, args)
 end
 
 local function fetch_events(args)
-  local app = ensure_app()
+  local app = app_path()
 
   -- Fast path: run binary directly (works if TCC already granted)
   local ok, result = pcall(run_cal_binary, app, args)
@@ -151,7 +143,7 @@ local function run(payload)
       "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars",
     })
   elseif payload.kind == "open_event" then
-    local app = ensure_app()
+    local app = app_path()
     runx.exec_status("open", { "-g", "-W", app, "--args", "--open", payload.epoch })
   end
 end
