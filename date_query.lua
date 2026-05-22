@@ -1,4 +1,32 @@
+---@class DateQuery
 local M = {}
+
+---@class dq.DateComponents
+---@field year integer
+---@field month integer
+---@field day integer
+
+---@class dq.Context
+---@field now integer
+---@field today dq.DateComponents
+---@field today_epoch integer
+---@field weekday integer 1=Sun, 7=Sat
+
+---@class dq.Parsed
+---@field offset integer
+---@field label string
+---@field display_label? string
+---@field explicit_date? boolean
+
+---@class dq.Result
+---@field raw string
+---@field offset integer
+---@field label string
+---@field display_date string
+---@field display_label? string
+---@field explicit_date boolean
+---@field start_epoch integer
+---@field end_epoch integer
 
 local aliases = {
   tomorrow = 1,
@@ -16,10 +44,17 @@ local weekdays = {
   sat = { index = 7, label = "Saturday" },
 }
 
+---@param value? string
+---@return string
 local function trim(value)
-  return (value or ""):gsub("^%s+", ""):gsub("%s+$", "")
+  local s = (value or ""):gsub("^%s+", ""):gsub("%s+$", "")
+  return s
 end
 
+---@param year integer
+---@param month integer
+---@param day integer
+---@return integer
 local function midnight_epoch(year, month, day)
   return os.time({
     year = year,
@@ -31,6 +66,8 @@ local function midnight_epoch(year, month, day)
   })
 end
 
+---@param now? integer
+---@return dq.Context
 local function build_context(now)
   now = now or os.time()
   local today = {
@@ -46,23 +83,36 @@ local function build_context(now)
   }
 end
 
+---@param year integer
+---@param month integer
+---@param day integer
+---@return boolean
 local function valid_date(year, month, day)
   local epoch = midnight_epoch(year, month, day)
   local normalized = os.date("*t", epoch)
   return normalized.year == year and normalized.month == month and normalized.day == day
 end
 
+---@param offset integer
+---@return string
 local function offset_label(offset)
   if offset == 0 then return "today" end
   if offset == 1 then return "tomorrow" end
   return "in " .. offset .. " days"
 end
 
+---@param arg string
+---@return string?
 local function weekday_token(arg)
   local token = arg:lower():match("^([a-z][a-z][a-z])%w*%.?.*$")
   return token
 end
 
+---@param day integer
+---@param month integer
+---@param year integer
+---@param ctx dq.Context
+---@return dq.Parsed?
 local function date_result(day, month, year, ctx)
   if not valid_date(year, month, day) then
     return nil
@@ -79,6 +129,10 @@ local function date_result(day, month, year, ctx)
   }
 end
 
+---@param day integer
+---@param month integer
+---@param ctx dq.Context
+---@return integer?
 local function nearest_year_for(day, month, ctx)
   for year = ctx.today.year, ctx.today.year + 8 do
     if valid_date(year, month, day) then
@@ -91,6 +145,8 @@ local function nearest_year_for(day, month, ctx)
   return nil
 end
 
+---@param arg string
+---@return dq.Parsed?
 local function parse_empty(arg)
   if arg == "" then
     return { offset = 0, label = "today" }
@@ -98,6 +154,8 @@ local function parse_empty(arg)
   return nil
 end
 
+---@param arg string
+---@return dq.Parsed?
 local function parse_alias(arg)
   local offset = aliases[arg]
   if offset == nil then
@@ -106,6 +164,9 @@ local function parse_alias(arg)
   return { offset = offset, label = offset_label(offset) }
 end
 
+---@param arg string
+---@param ctx dq.Context
+---@return dq.Parsed?
 local function parse_weekday(arg, ctx)
   local weekday = weekdays[weekday_token(arg) or ""]
   if not weekday then
@@ -118,6 +179,8 @@ local function parse_weekday(arg, ctx)
   }
 end
 
+---@param arg string
+---@return dq.Parsed?
 local function parse_offset(arg)
   local offset = tonumber(arg)
   if not offset or offset < 0 or offset ~= math.floor(offset) then
@@ -126,21 +189,30 @@ local function parse_offset(arg)
   return { offset = offset, label = offset_label(offset) }
 end
 
+---@param arg string
+---@param ctx dq.Context
+---@return dq.Parsed?
 local function parse_full_date(arg, ctx)
-  local day, month, year = arg:match("^(%d%d?)%.(%d%d?)%.(%d%d%d%d)$")
-  if not day then
+  local d, m, y = arg:match("^(%d%d?)%.(%d%d?)%.(%d%d%d%d)$")
+  if not d then
     return nil
   end
-  return date_result(tonumber(day), tonumber(month), tonumber(year), ctx)
+  local day = tonumber(d) --[[@as integer]]
+  local month = tonumber(m) --[[@as integer]]
+  local year = tonumber(y) --[[@as integer]]
+  return date_result(day, month, year, ctx)
 end
 
+---@param arg string
+---@param ctx dq.Context
+---@return dq.Parsed?
 local function parse_day_month(arg, ctx)
-  local day, month = arg:match("^(%d%d?)%.(%d%d?)$")
-  if not day then
+  local d, m = arg:match("^(%d%d?)%.(%d%d?)$")
+  if not d then
     return nil
   end
-  day = tonumber(day)
-  month = tonumber(month)
+  local day = tonumber(d) --[[@as integer]]
+  local month = tonumber(m) --[[@as integer]]
   local year = nearest_year_for(day, month, ctx)
   if not year then
     return nil
@@ -148,6 +220,9 @@ local function parse_day_month(arg, ctx)
   return date_result(day, month, year, ctx)
 end
 
+---@alias dq.Parser fun(arg: string, ctx: dq.Context): dq.Parsed?
+
+---@type dq.Parser[]
 local parsers = {
   parse_empty,
   parse_alias,
@@ -157,6 +232,10 @@ local parsers = {
   parse_day_month,
 }
 
+---@param arg string
+---@param parsed dq.Parsed
+---@param ctx dq.Context
+---@return dq.Result
 local function finalize(arg, parsed, ctx)
   local offset = parsed.offset
   if offset == nil or offset < 0 then
@@ -187,6 +266,9 @@ local function finalize(arg, parsed, ctx)
   }
 end
 
+---@param raw? string
+---@param now? integer
+---@return dq.Result
 function M.parse(raw, now)
   local arg = trim(raw)
   local ctx = build_context(now)
