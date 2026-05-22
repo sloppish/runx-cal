@@ -6,7 +6,7 @@ local SNAPSHOT_DAYS = 31
 local SNAPSHOT_KEY = "events:snapshot"
 
 local function app_path()
-  return runx.plugin_dir .. "/CalEvents.app"
+  return runx.plugin_dir .. "/Runx Calendar Plugin Helper.app"
 end
 
 local function run_cal_binary(app, args)
