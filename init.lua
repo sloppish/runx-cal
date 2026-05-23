@@ -102,7 +102,7 @@ local function search_cal(raw)
   local query = date_query.parse(raw)
   local result = nil
 
-  if query.offset >= SNAPSHOT_DAYS then
+  if query.offset < 0 or query.offset >= SNAPSHOT_DAYS then
     result = load_day(query.offset)
   else
     result = load_snapshot()
@@ -119,14 +119,14 @@ local function search_cal(raw)
     }}
   end
 
-  local events = query.offset >= SNAPSHOT_DAYS and result or events_for_day(result, query)
+  local events = (query.offset < 0 or query.offset >= SNAPSHOT_DAYS) and result or events_for_day(result, query)
   local items = {}
   for i, ev in ipairs(events) do
     table.insert(items, item_for_event(ev, i, query))
   end
   if #items == 0 then
     table.insert(items, {
-      title = "No upcoming events " .. query.label,
+      title = "No events " .. query.label,
       subtitle = query_prefix(query),
       score = 100,
       badge = "CAL",

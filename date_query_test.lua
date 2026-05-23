@@ -64,4 +64,21 @@ end
 local invalid = date_query.parse("31.02", now)
 assert(invalid.offset == 0 and invalid.label == "today")
 
+-- Negative offsets (past dates)
+local neg_cases = {
+  { "-1", -1, "yesterday", "15.05.2026", nil },
+  { "-3", -3, "3 days ago", "13.05.2026", nil },
+  { "-0", 0, "today", "16.05.2026", "Today" },
+  { "01.01.2026", offset_to(2026, 1, 1), "on 01.01.2026", "01.01.2026", nil },
+  { "15.05.2026", -1, "on 15.05.2026", "15.05.2026", nil },
+}
+
+for _, case in ipairs(neg_cases) do
+  local parsed = date_query.parse(case[1], now)
+  assert(parsed.offset == case[2], case[1] .. " offset=" .. parsed.offset)
+  assert(parsed.label == case[3], case[1] .. " label=" .. parsed.label)
+  assert(parsed.display_date == case[4], case[1] .. " date=" .. parsed.display_date)
+  assert(parsed.display_label == case[5], case[1] .. " display=" .. tostring(parsed.display_label))
+end
+
 print("date_query ok")

@@ -13,6 +13,7 @@ cal             → today's events
 cal tomorrow    → tomorrow (also: tmr)
 cal mon         → next Monday (mon/tue/wed/thu/fri/sat/sun)
 cal 3           → 3 days from now
+cal -2          → 2 days ago
 cal 25.12       → December 25
 cal 01.03.2026  → specific date (dd.mm.yyyy)
 ```

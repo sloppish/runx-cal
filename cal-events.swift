@@ -95,7 +95,7 @@ func queryRange() -> EventQueryRange {
 
     let dayOffset: Int = {
         for arg in CommandLine.arguments.dropFirst() {
-            if arg.hasPrefix("-") { continue }
+            if arg.hasPrefix("--") { continue }
             if let n = Int(arg) { return n }
         }
         return 0

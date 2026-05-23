@@ -182,7 +182,7 @@ end
 ---@return dq.Parsed?
 local function parse_offset(arg)
   local offset = tonumber(arg)
-  if not offset or offset < 0 or offset ~= math.floor(offset) then
+  if not offset or offset ~= math.floor(offset) then
     return nil
   end
   return { offset = offset, label = offset_label(offset) }
