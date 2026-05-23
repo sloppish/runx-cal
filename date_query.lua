@@ -98,6 +98,8 @@ end
 local function offset_label(offset)
   if offset == 0 then return "today" end
   if offset == 1 then return "tomorrow" end
+  if offset == -1 then return "yesterday" end
+  if offset < 0 then return math.abs(offset) .. " days ago" end
   return "in " .. offset .. " days"
 end
 
@@ -119,9 +121,6 @@ local function date_result(day, month, year, ctx)
   end
   local target_epoch = midnight_epoch(year, month, day)
   local offset = math.floor((target_epoch - ctx.today_epoch) / 86400)
-  if offset < 0 then
-    return nil
-  end
   return {
     offset = offset,
     label = string.format("on %02d.%02d.%04d", day, month, year),
@@ -238,7 +237,7 @@ local parsers = {
 ---@return dq.Result
 local function finalize(arg, parsed, ctx)
   local offset = parsed.offset
-  if offset == nil or offset < 0 then
+  if offset == nil then
     offset = 0
     parsed = { offset = 0, label = "today" }
   end
