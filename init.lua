@@ -1,5 +1,3 @@
----@diagnostic disable: undefined-global
-
 local date_query = require("date_query")
 
 local SNAPSHOT_DAYS = 31
