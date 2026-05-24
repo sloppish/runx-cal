@@ -33,5 +33,5 @@ This lets you type `c tomorrow` instead of `cal tomorrow`.
 
 ## Permissions
 
-macOS will prompt you to grant calendar access to "Runx Calendar Plugin Helper".
+macOS will prompt you to grant calendar access to "Runx Calendar Plugin Helper" on the first invocation or after updating.
 Pick "Full Calendar Access" for it to work.

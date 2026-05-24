@@ -9,7 +9,10 @@ MACOS="$CONTENTS/MacOS"
 rm -rf "$APP"
 mkdir -p "$MACOS"
 
-swiftc -O -o "$MACOS/cal-events" "$DIR/cal-events.swift" -framework EventKit -framework AppKit
+swiftc -O -target arm64-apple-macosx11.0 -o "$MACOS/cal-events-arm64" "$DIR/cal-events.swift" -framework EventKit -framework AppKit
+swiftc -O -target x86_64-apple-macosx11.0 -o "$MACOS/cal-events-x86_64" "$DIR/cal-events.swift" -framework EventKit -framework AppKit
+lipo -create "$MACOS/cal-events-arm64" "$MACOS/cal-events-x86_64" -output "$MACOS/cal-events"
+rm "$MACOS/cal-events-arm64" "$MACOS/cal-events-x86_64"
 
 cat > "$CONTENTS/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
