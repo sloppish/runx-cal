@@ -20,6 +20,17 @@ cal 01.03.2026  → specific date (dd.mm.yyyy)
 
 Select an event to open it in Calendar app.
 
+## Aliases
+
+You can define aliases for commands in your Runx plugin config, for example:
+
+```toml
+[plugin.cal.aliases]
+cal = "c"
+```
+
+This lets you type `c tomorrow` instead of `cal tomorrow`.
+
 ## Permissions
 
 macOS will prompt you to grant calendar access to "Runx Calendar Plugin Helper".
